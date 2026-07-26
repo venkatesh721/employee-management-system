@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     )
 
     DATABASE_URL: str = "sqlite:///./ems.db"
-    SECRET_KEY: str = "your-super-secret-key-change-in-production"
+    SECRET_KEY: str = "775c9ca579333f54cdd77cf44c5b515e"
     JWT_SECRET_KEY: str | None = None
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
@@ -103,6 +103,11 @@ class Settings(BaseSettings):
             raise ValueError(
                 "Production requires SMTP_HOST, SMTP_USERNAME, SMTP_PASSWORD, "
                 "and SMTP_FROM_EMAIL"
+            )
+        if self.SMTP_PASSWORD == "your-google-app-password":
+            raise ValueError(
+                "Production SMTP_PASSWORD must be a real provider credential, "
+                "not the example placeholder"
             )
         return self
 

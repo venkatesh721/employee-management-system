@@ -54,6 +54,10 @@ def test_valid_production_settings_are_accepted():
         ({"CORS_ORIGINS": "http://localhost:3000"}, "exact HTTPS origins"),
         ({"FRONTEND_URL": "http://localhost:3000"}, "exact HTTPS origin"),
         ({"SMTP_PASSWORD": None}, "Production requires SMTP_HOST"),
+        (
+            {"SMTP_PASSWORD": "your-google-app-password"},
+            "must be a real provider credential",
+        ),
     ],
 )
 def test_production_rejects_insecure_or_incomplete_settings(override, message):

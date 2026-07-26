@@ -10,7 +10,6 @@ frontend/build/
 # Environment
 .env
 .env.local
-.env.production
 backend/.env
 
 # Python
