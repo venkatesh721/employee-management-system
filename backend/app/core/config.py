@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     DEFAULT_ADMIN_NAME: str = "Venkatesh"
     DEFAULT_ADMIN_USERNAME: str = "venkatesh"
     DEFAULT_ADMIN_EMAIL: str = "admin@example.com"
-    DEFAULT_ADMIN_PASSWORD: str = ""
+    DEFAULT_ADMIN_PASSWORD: str = "Admin@123"
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod

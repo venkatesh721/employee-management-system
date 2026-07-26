@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from app.core.database import Base, engine
+from app.core.database import Base, SessionLocal, engine
 from app.api.routes import (
     attendance,
     audit_logs,
@@ -21,6 +21,7 @@ from app.api.routes import (
 )
 from app.core.config import settings
 from app.core.middleware import ProductionMiddleware
+from app.services.administrator import ensure_default_administrator
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
@@ -32,6 +33,8 @@ logging.basicConfig(
 async def lifespan(_app: FastAPI):
     if settings.ENVIRONMENT.lower() != "production":
         Base.metadata.create_all(bind=engine)
+    with SessionLocal() as db:
+        ensure_default_administrator(db)
     yield
 
 

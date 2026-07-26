@@ -107,6 +107,11 @@ def create_employee(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
+    if payload.role != "employee":
+        raise HTTPException(
+            status_code=400,
+            detail="Additional administrator accounts cannot be created",
+        )
     if db.query(Employee).filter(Employee.email == payload.email).first():
         raise HTTPException(status_code=400, detail="Email already in use")
 
@@ -229,6 +234,11 @@ def update_employee(
     update_data = payload.model_dump(exclude_unset=True)
     new_password = update_data.pop("password", None)
     new_role = update_data.pop("role", None)
+    if new_role and new_role != "employee":
+        raise HTTPException(
+            status_code=400,
+            detail="Employee accounts cannot be promoted to administrator",
+        )
     new_active = update_data.pop("is_active", None)
     if "user_id" in update_data and update_data["user_id"]:
         update_data["user_id"] = uuid.UUID(update_data["user_id"])

@@ -25,7 +25,12 @@ def upgrade():
     if "role" not in columns:
         with op.batch_alter_table("users") as batch:
             batch.add_column(
-                sa.Column("role", sa.String(length=20), nullable=False, server_default="employee")
+                sa.Column(
+                    "role",
+                    sa.String(length=20),
+                    nullable=False,
+                    server_default="employee",
+                )
             )
     bind.execute(
         sa.text("UPDATE users SET role = 'admin' WHERE is_superuser = :enabled"),
