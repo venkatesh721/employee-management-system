@@ -42,12 +42,22 @@ app = FastAPI(
     title="Employee Management System API", version="1.0.0", lifespan=lifespan
 )
 
-allowed_origins = [
-    origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()
-]
-if settings.ENVIRONMENT.lower() != "production":
-    allowed_origins.append("http://localhost:5173")
+allowed_origins = list(
+    dict.fromkeys(
+        [
+            *[
+                origin.strip()
+                for origin in settings.CORS_ORIGINS.split(",")
+                if origin.strip()
+            ],
+            "http://localhost:5173",
+            "https://employee-management-system-xi-three.vercel.app",
+        ]
+    )
+)
 
+# Starlette executes the most recently added middleware first. Add CORS last so
+# it remains the outer layer and resolves browser preflight before custom logic.
 app.add_middleware(ProductionMiddleware)
 app.add_middleware(
     CORSMiddleware,
@@ -57,7 +67,7 @@ app.add_middleware(
         r"-venkatesh721s-projects\.vercel\.app"
     ),
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 

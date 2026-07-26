@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { createEmployee, getEmployee, updateEmployee } from '../services/employeeService'
-import { getDepartments } from '../services/departmentService'
+import { getDepartments, normalizeDepartments } from '../services/departmentService'
 import { STATUS_OPTIONS, POSITION_OPTIONS } from '../utils/constants'
 import toast from 'react-hot-toast'
 import Loading from '../components/common/Loading'
@@ -32,14 +32,32 @@ export default function EmployeeForm() {
   const navigate = useNavigate()
   const [form, setForm] = useState(emptyForm)
   const [departments, setDepartments] = useState([])
+  const [departmentsLoading, setDepartmentsLoading] = useState(true)
+  const [departmentsError, setDepartmentsError] = useState('')
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
+    let active = true
+
     getDepartments()
-      .then((res) => setDepartments(res.data || []))
-      .catch(() => {})
+      .then((response) => {
+        if (!active) return
+        setDepartments(normalizeDepartments(response))
+        setDepartmentsError('')
+      })
+      .catch((departmentRequestError) => {
+        console.error('Failed to load departments:', departmentRequestError)
+        if (!active) return
+        setDepartments([])
+        setDepartmentsError(
+          'Unable to load departments. Please refresh the page and try again.',
+        )
+      })
+      .finally(() => {
+        if (active) setDepartmentsLoading(false)
+      })
 
     if (isEdit) {
       getEmployee(id)
@@ -70,6 +88,10 @@ export default function EmployeeForm() {
           navigate('/admin/employees')
         })
         .finally(() => setLoading(false))
+    }
+
+    return () => {
+      active = false
     }
   }, [id, isEdit, navigate])
 
@@ -160,12 +182,29 @@ export default function EmployeeForm() {
           <div className="form-row">
             <div className="form-group">
               <label>Department</label>
-              <select name="department_id" value={form.department_id} onChange={handleChange} className="form-control">
-                <option value="">Select Department</option>
+              <select
+                name="department_id"
+                value={form.department_id}
+                onChange={handleChange}
+                className="form-control"
+                disabled={departmentsLoading || Boolean(departmentsError)}
+              >
+                <option value="">
+                  {departmentsLoading
+                    ? 'Loading departments...'
+                    : departmentsError
+                      ? 'Departments unavailable'
+                      : departments.length === 0
+                        ? 'No departments available. Create a department first.'
+                        : 'Select Department'}
+                </option>
                 {departments.map((d) => (
                   <option key={d.id} value={d.id}>{d.name}</option>
                 ))}
               </select>
+              {departmentsError && (
+                <div className="field-error" role="alert">{departmentsError}</div>
+              )}
             </div>
             <div className="form-group">
               <label>Position</label>

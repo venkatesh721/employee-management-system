@@ -1,13 +1,22 @@
 import { createContext, useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { login as loginApi, getProfile, logoutApi } from '../services/authService'
 import toast from 'react-hot-toast'
 
 export const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
+  const navigate = useNavigate()
   const [user, setUser] = useState(null)
   const [token, setToken] = useState(localStorage.getItem('token'))
   const [loading, setLoading] = useState(true)
+
+  const clearSession = useCallback(() => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    setToken(null)
+    setUser(null)
+  }, [])
 
   const loadUser = useCallback(async () => {
     const storedToken = localStorage.getItem('token')
@@ -19,18 +28,26 @@ export function AuthProvider({ children }) {
       const res = await getProfile()
       setUser(res.data)
     } catch {
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      setToken(null)
-      setUser(null)
+      clearSession()
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [clearSession])
 
   useEffect(() => {
     loadUser()
   }, [loadUser])
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      clearSession()
+      navigate('/login', { replace: true })
+    }
+    window.addEventListener('auth:unauthorized', handleUnauthorized)
+    return () => {
+      window.removeEventListener('auth:unauthorized', handleUnauthorized)
+    }
+  }, [clearSession, navigate])
 
   const login = async (identifier, password, role) => {
     const res = await loginApi(identifier, password, role)
@@ -49,12 +66,9 @@ export function AuthProvider({ children }) {
     } catch {
       // Local logout must still succeed if the token is already expired.
     }
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
-    setToken(null)
-    setUser(null)
+    clearSession()
     toast.success('Logged out')
-    window.location.assign('/login')
+    navigate('/login', { replace: true })
   }
 
   const updateUser = (userData) => {

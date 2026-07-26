@@ -46,6 +46,11 @@ class ProductionMiddleware(BaseHTTPMiddleware):
         return False
 
     async def dispatch(self, request: Request, call_next):
+        # CORS preflight is owned exclusively by CORSMiddleware. If an OPTIONS
+        # request ever reaches this inner middleware, pass it through untouched.
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
         started = time.perf_counter()
         if self._rate_limited(request):

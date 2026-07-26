@@ -1,5 +1,11 @@
 import { useState, useEffect } from 'react'
-import { getDepartments, createDepartment, updateDepartment, deleteDepartment } from '../services/departmentService'
+import {
+  getDepartments,
+  normalizeDepartments,
+  createDepartment,
+  updateDepartment,
+  deleteDepartment,
+} from '../services/departmentService'
 import toast from 'react-hot-toast'
 import Loading from '../components/common/Loading'
 
@@ -15,7 +21,7 @@ export default function Departments() {
   const fetchDepartments = async () => {
     try {
       const res = await getDepartments()
-      setDepartments(res.data || [])
+      setDepartments(normalizeDepartments(res))
     } catch {
       toast.error('Failed to load departments')
     } finally {
