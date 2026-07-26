@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.core.security import require_admin
 from app.models.department import Department
 from app.models.employee import Employee
 from app.models.user import User
@@ -58,9 +58,13 @@ def _employee_to_response(emp: Employee) -> EmployeeResponse:
 @router.get("", response_model=list[DepartmentWithEmployeeCount])
 def list_departments(
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_admin),
 ):
-    departments = db.query(Department).all()
+    departments = (
+        db.query(Department)
+        .order_by(Department.created_at.asc(), Department.id.asc())
+        .all()
+    )
     result = []
     for dept in departments:
         count = db.query(Employee).filter(Employee.department_id == dept.id).count()
@@ -82,7 +86,7 @@ def list_departments(
 def create_department(
     payload: DepartmentCreate,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_admin),
 ):
     if db.query(Department).filter(Department.name == payload.name).first():
         raise HTTPException(status_code=400, detail="Department name already exists")
@@ -103,15 +107,15 @@ def create_department(
 def get_department(
     department_id: str,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_admin),
 ):
-    dept = db.query(Department).filter(Department.id == uuid.UUID(department_id)).first()
+    dept = (
+        db.query(Department).filter(Department.id == uuid.UUID(department_id)).first()
+    )
     if not dept:
         raise HTTPException(status_code=404, detail="Department not found")
 
-    employees = (
-        db.query(Employee).filter(Employee.department_id == dept.id).all()
-    )
+    employees = db.query(Employee).filter(Employee.department_id == dept.id).all()
     return DepartmentDetailResponse(
         id=str(dept.id),
         name=dept.name,
@@ -128,9 +132,11 @@ def update_department(
     department_id: str,
     payload: DepartmentUpdate,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_admin),
 ):
-    dept = db.query(Department).filter(Department.id == uuid.UUID(department_id)).first()
+    dept = (
+        db.query(Department).filter(Department.id == uuid.UUID(department_id)).first()
+    )
     if not dept:
         raise HTTPException(status_code=404, detail="Department not found")
 
@@ -150,9 +156,11 @@ def update_department(
 def delete_department(
     department_id: str,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_admin),
 ):
-    dept = db.query(Department).filter(Department.id == uuid.UUID(department_id)).first()
+    dept = (
+        db.query(Department).filter(Department.id == uuid.UUID(department_id)).first()
+    )
     if not dept:
         raise HTTPException(status_code=404, detail="Department not found")
 

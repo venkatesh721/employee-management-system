@@ -21,6 +21,9 @@ const emptyForm = {
   state: '',
   zip_code: '',
   status: 'active',
+  role: 'employee',
+  password: '',
+  is_active: true,
 }
 
 export default function EmployeeForm() {
@@ -57,11 +60,14 @@ export default function EmployeeForm() {
             state: emp.state || '',
             zip_code: emp.zip_code || '',
             status: emp.status || 'active',
+            role: emp.role || 'employee',
+            password: '',
+            is_active: emp.is_active ?? true,
           })
         })
         .catch(() => {
           toast.error('Failed to load employee')
-          navigate('/employees')
+          navigate('/admin/employees')
         })
         .finally(() => setLoading(false))
     }
@@ -78,13 +84,18 @@ export default function EmployeeForm() {
       setError('First name, last name, and email are required')
       return
     }
+    if (!isEdit && form.password.length < 8) {
+      setError('A login password of at least 8 characters is required')
+      return
+    }
     setSaving(true)
     try {
       const payload = {
         ...form,
         salary: form.salary ? Number(form.salary) : null,
-        department_id: form.department_id ? Number(form.department_id) : null,
+        department_id: form.department_id || null,
       }
+      if (isEdit && !payload.password) delete payload.password
       if (isEdit) {
         await updateEmployee(id, payload)
         toast.success('Employee updated successfully')
@@ -92,7 +103,7 @@ export default function EmployeeForm() {
         await createEmployee(payload)
         toast.success('Employee created successfully')
       }
-      navigate('/employees')
+      navigate('/admin/employees')
     } catch (err) {
       const msg = err.response?.data?.detail || 'Failed to save employee'
       setError(msg)
@@ -105,7 +116,7 @@ export default function EmployeeForm() {
   if (loading) return <Loading />
 
   return (
-    <div className="page-container">
+    <div className="page-container management-page employee-form-page">
       <div className="page-header">
         <h2>{isEdit ? 'Edit Employee' : 'Add Employee'}</h2>
       </div>
@@ -121,6 +132,19 @@ export default function EmployeeForm() {
             <div className="form-group">
               <label>Last Name *</label>
               <input type="text" name="last_name" value={form.last_name} onChange={handleChange} className="form-control" />
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label>Account Role *</label>
+              <select name="role" value={form.role} onChange={handleChange} className="form-control">
+                <option value="employee">Employee</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label>{isEdit ? 'New Password (optional)' : 'Login Password *'}</label>
+              <input type="password" name="password" minLength={isEdit ? undefined : 8} maxLength={72} value={form.password} onChange={handleChange} className="form-control" autoComplete="new-password" />
             </div>
           </div>
           <div className="form-row">
@@ -196,7 +220,7 @@ export default function EmployeeForm() {
             </div>
           </div>
           <div className="form-actions">
-            <button type="button" className="btn btn-outline" onClick={() => navigate('/employees')}>Cancel</button>
+            <button type="button" className="btn btn-outline" onClick={() => navigate('/admin/employees')}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
               {saving ? 'Saving...' : isEdit ? 'Update Employee' : 'Create Employee'}
             </button>

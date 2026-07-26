@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: globalco
+      POSTGRES_USER: globalco
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U globalco"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  backend:
+    build: .
+    ports: ["8000:8000"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://globalco:${POSTGRES_PASSWORD:-change-me}@db/globalco
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      ENVIRONMENT: production
+      ENABLE_EXTERNAL_AI: "false"
+    depends_on:
+      db:
+        condition: service_healthy
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    volumes: ["./frontend:/app"]
+    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0"
+    ports: ["3000:3000"]
+    depends_on: [backend]
+volumes:
+  postgres_data:

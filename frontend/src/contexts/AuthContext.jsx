@@ -1,6 +1,5 @@
 import { createContext, useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { login as loginApi, register as registerApi, getProfile } from '../services/authService'
+import { login as loginApi, getProfile, logoutApi } from '../services/authService'
 import toast from 'react-hot-toast'
 
 export const AuthContext = createContext(null)
@@ -33,8 +32,8 @@ export function AuthProvider({ children }) {
     loadUser()
   }, [loadUser])
 
-  const login = async (email, password) => {
-    const res = await loginApi(email, password)
+  const login = async (identifier, password, role) => {
+    const res = await loginApi(identifier, password, role)
     const { access_token, user: userData } = res.data
     localStorage.setItem('token', access_token)
     localStorage.setItem('user', JSON.stringify(userData))
@@ -44,18 +43,18 @@ export function AuthProvider({ children }) {
     return res.data
   }
 
-  const register = async (data) => {
-    const res = await registerApi(data)
-    toast.success('Registration successful')
-    return res.data
-  }
-
-  const logout = () => {
+  const logout = async () => {
+    try {
+      if (localStorage.getItem('token')) await logoutApi()
+    } catch {
+      // Local logout must still succeed if the token is already expired.
+    }
     localStorage.removeItem('token')
     localStorage.removeItem('user')
     setToken(null)
     setUser(null)
     toast.success('Logged out')
+    window.location.assign('/login')
   }
 
   const updateUser = (userData) => {
@@ -64,7 +63,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout, register, updateUser }}>
+    <AuthContext.Provider value={{ user, token, loading, login, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   )

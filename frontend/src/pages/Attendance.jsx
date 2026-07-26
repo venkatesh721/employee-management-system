@@ -1,170 +1,51 @@
-import { useState, useEffect } from 'react'
-import { getAttendance, checkIn, checkOut, getTodayAttendance, getAttendanceSummary } from '../services/attendanceService'
+import { useCallback, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import Loading from '../components/common/Loading'
+import { useAuth } from '../hooks/useAuth'
+import api from '../services/api'
 
+const empty = { employee_id: '', date: new Date().toISOString().slice(0, 10), check_in: '', check_out: '', status: 'present', notes: '' }
 export default function Attendance() {
-  const [records, setRecords] = useState([])
-  const [todayRecord, setTodayRecord] = useState(null)
-  const [summary, setSummary] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
-  const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [checkedIn, setCheckedIn] = useState(false)
-  const [currentId, setCurrentId] = useState(null)
-
-  const fetchData = async () => {
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
+  const [records,setRecords]=useState([]), [summary,setSummary]=useState({}), [employees,setEmployees]=useState([])
+  const [loading,setLoading]=useState(true), [form,setForm]=useState(empty), [dateFrom,setDateFrom]=useState(''), [dateTo,setDateTo]=useState('')
+  const load=useCallback(async()=>{
     setLoading(true)
     try {
-      const params = { page, size: 10 }
-      if (dateFrom) params.date_from = dateFrom
-      if (dateTo) params.date_to = dateTo
-
-      const [recordsRes, todayRes, summaryRes] = await Promise.all([
-        getAttendance(params),
-        getTodayAttendance(),
-        getAttendanceSummary(),
-      ])
-      setRecords(recordsRes.data.items || recordsRes.data.data || [])
-      setTotalPages(recordsRes.data.total_pages || recordsRes.data.pages || 1)
-      const td = todayRes.data
-      setTodayRecord(td)
-      if (td && td.check_in && !td.check_out) {
-        setCheckedIn(true)
-        setCurrentId(td.id)
-      } else {
-        setCheckedIn(false)
-        setCurrentId(null)
-      }
-      setSummary(summaryRes.data)
-    } catch {
-      toast.error('Failed to load attendance data')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchData()
-  }, [page, dateFrom, dateTo])
-
-  const handleCheckIn = async () => {
+      const params={size:100}; if(dateFrom)params.date_from=dateFrom;if(dateTo)params.date_to=dateTo
+      const requests=[api.get('/attendance',{params}),api.get('/attendance/summary',{params:{period:'monthly'}})]
+      if(isAdmin)requests.push(api.get('/employees',{params:{size:100}}))
+      const [list,sum,emps]=await Promise.all(requests)
+      setRecords(list.data.items);setSummary(sum.data);if(emps)setEmployees(emps.data.items)
+    } catch(e){toast.error(e.response?.data?.detail||'Failed to load attendance')} finally{setLoading(false)}
+  },[dateFrom,dateTo,isAdmin])
+  useEffect(()=>{load()},[load])
+  const submit=async(e)=>{
+    e.preventDefault()
     try {
-      const res = await checkIn({ notes: '' })
-      setCheckedIn(true)
-      setCurrentId(res.data.id)
-      toast.success('Checked in successfully')
-      fetchData()
-    } catch (err) {
-      toast.error(err.response?.data?.detail || 'Check in failed')
-    }
+      const payload={...form,check_in:form.check_in?`${form.date}T${form.check_in}:00`:null,check_out:form.check_out?`${form.date}T${form.check_out}:00`:null}
+      await api.post('/attendance',payload);toast.success('Attendance saved');setForm(empty);load()
+    } catch(err){toast.error(err.response?.data?.detail||'Unable to save attendance')}
   }
-
-  const handleCheckOut = async () => {
-    if (!currentId) return
-    try {
-      await checkOut(currentId)
-      setCheckedIn(false)
-      setCurrentId(null)
-      toast.success('Checked out successfully')
-      fetchData()
-    } catch (err) {
-      toast.error(err.response?.data?.detail || 'Check out failed')
-    }
-  }
-
-  if (loading && records.length === 0) return <Loading />
-
-  return (
-    <div className="page-container">
-      <div className="attendance-summary">
-        <div className="summary-card">
-          <span className="summary-label">Present</span>
-          <span className="summary-value" style={{ color: '#22c55e' }}>{summary?.present || 0}</span>
-        </div>
-        <div className="summary-card">
-          <span className="summary-label">Absent</span>
-          <span className="summary-value" style={{ color: '#ef4444' }}>{summary?.absent || 0}</span>
-        </div>
-        <div className="summary-card">
-          <span className="summary-label">Late</span>
-          <span className="summary-value" style={{ color: '#f59e0b' }}>{summary?.late || 0}</span>
-        </div>
-        <div className="summary-card">
-          <span className="summary-label">Half Day</span>
-          <span className="summary-value" style={{ color: '#8b5cf6' }}>{summary?.half_day || 0}</span>
-        </div>
-        <div className="summary-card">
-          <span className="summary-label">On Leave</span>
-          <span className="summary-value" style={{ color: '#64748b' }}>{summary?.leave || 0}</span>
-        </div>
-      </div>
-
-      <div className="card">
-        <div className="card-header">
-          <h3>Today's Attendance</h3>
-          <div className="check-action">
-            {todayRecord ? (
-              <div className="current-status">
-                <span className="badge badge-active">Checked In: {todayRecord.check_in ? new Date(todayRecord.check_in).toLocaleTimeString() : '-'}</span>
-              </div>
-            ) : (
-              checkedIn ? null : <span className="text-muted">No record for today</span>
-            )}
-            {!checkedIn ? (
-              <button className="btn btn-success" onClick={handleCheckIn}>Check In</button>
-            ) : (
-              <button className="btn btn-warning" onClick={handleCheckOut}>Check Out</button>
-            )}
-          </div>
-        </div>
-
-        <div className="search-filters">
-          <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1) }} className="form-control" />
-          <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1) }} className="form-control" />
-        </div>
-
-        <div className="table-responsive">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Employee</th>
-                <th>Date</th>
-                <th>Check In</th>
-                <th>Check Out</th>
-                <th>Status</th>
-                <th>Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {records.length === 0 ? (
-                <tr><td colSpan={6} className="text-center">No attendance records found</td></tr>
-              ) : (
-                records.map((rec) => (
-                  <tr key={rec.id}>
-                    <td>{rec.employee_name || rec.employee?.first_name + ' ' + rec.employee?.last_name || `Employee #${rec.employee_id}`}</td>
-                    <td>{rec.date ? new Date(rec.date).toLocaleDateString() : '-'}</td>
-                    <td>{rec.check_in ? new Date(rec.check_in).toLocaleTimeString() : '-'}</td>
-                    <td>{rec.check_out ? new Date(rec.check_out).toLocaleTimeString() : '-'}</td>
-                    <td><span className={`badge badge-${rec.status || 'present'}`}>{rec.status || 'present'}</span></td>
-                    <td>{rec.notes || '-'}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {totalPages > 1 && (
-          <div className="pagination">
-            <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="btn btn-outline btn-sm">Previous</button>
-            <span className="page-info">Page {page} of {totalPages}</span>
-            <button disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="btn btn-outline btn-sm">Next</button>
-          </div>
-        )}
-      </div>
-    </div>
-  )
+  if(loading&&!records.length)return <Loading/>
+  const cards=[['Present','present','#22c55e'],['Absent','absent','#ef4444'],['Late','late','#f59e0b'],['Half Day','half_day','#8b5cf6'],['On Leave','on_leave','#64748b']]
+  return <div className={`page-container management-page attendance-page ${isAdmin ? 'admin-attendance' : 'employee-attendance'}`}>
+    <div className="attendance-summary">{cards.map(([label,key,color])=><div className="summary-card" key={key}><span className="summary-label">{label}</span><span className="summary-value" style={{color}}>{summary[key]||0}</span></div>)}</div>
+    {isAdmin&&<div className="card"><div className="card-header"><h3>Record Attendance</h3><span className="text-muted">Administrator-only entry</span></div>
+      <form className="form-grid" onSubmit={submit}>
+        <div className="form-group"><label>Employee</label><select required value={form.employee_id} onChange={e=>setForm({...form,employee_id:e.target.value})}><option value="">Select employee</option>{employees.map(x=><option key={x.id} value={x.id}>{x.employee_id} — {x.first_name} {x.last_name}</option>)}</select></div>
+        <div className="form-group"><label>Date</label><input type="date" required value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/></div>
+        <div className="form-group"><label>Check in</label><input type="time" value={form.check_in} onChange={e=>setForm({...form,check_in:e.target.value})}/></div>
+        <div className="form-group"><label>Check out</label><input type="time" value={form.check_out} onChange={e=>setForm({...form,check_out:e.target.value})}/></div>
+        <div className="form-group"><label>Status</label><select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}>{cards.map(([label,key])=><option key={key} value={key}>{label}</option>)}</select></div>
+        <div className="form-group"><label>Notes</label><input value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})}/></div>
+        <button className="btn btn-primary" type="submit">Save Attendance</button>
+      </form></div>}
+    <div className="card"><div className="card-header"><h3>{isAdmin?'Attendance Management':'My Attendance History'}</h3>{!isAdmin&&<span className="text-muted">Read-only personal records</span>}</div>
+      <div className="search-filters"><input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)}/><input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)}/></div>
+      <div className="table-responsive"><table className="table"><thead><tr>{isAdmin&&<th>Employee</th>}<th>Date</th><th>Check In</th><th>Check Out</th><th>Hours</th><th>Status</th><th>Notes</th></tr></thead><tbody>
+        {!records.length?<tr><td colSpan={isAdmin?7:6} className="text-center">No attendance records found</td></tr>:records.map(r=><tr key={r.id}>{isAdmin&&<td>{r.employee_name||r.employee_id}</td>}<td>{r.date}</td><td>{r.check_in?new Date(r.check_in).toLocaleTimeString():'—'}</td><td>{r.check_out?new Date(r.check_out).toLocaleTimeString():'—'}</td><td>{r.working_hours?.toFixed?.(2)||'0.00'}</td><td><span className={`badge badge-${r.status}`}>{r.status.replace('_',' ')}</span></td><td>{r.notes||'—'}</td></tr>)}
+      </tbody></table></div></div>
+  </div>
 }

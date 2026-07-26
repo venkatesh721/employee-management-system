@@ -4,12 +4,22 @@ import Sidebar from './Sidebar'
 import Navbar from './Navbar'
 
 const pageTitles = {
-  '/': 'Dashboard',
-  '/employees': 'Employees',
-  '/employees/new': 'Add Employee',
-  '/departments': 'Departments',
-  '/attendance': 'Attendance',
-  '/profile': 'Profile',
+  '/admin/dashboard': 'Admin Dashboard',
+  '/admin/employees': 'Employees',
+  '/admin/employees/new': 'Add Employee Account',
+  '/admin/departments': 'Departments',
+  '/admin/attendance': 'Attendance',
+  '/admin/payroll': 'Payroll',
+  '/admin/leaves': 'Leave Requests',
+  '/admin/ai-assistant': 'AI Assistant',
+  '/admin/insights': 'Workforce Insights',
+  '/admin/audit-logs': 'System Activity',
+  '/admin/profile': 'Profile',
+  '/employee/dashboard': 'Employee Dashboard',
+  '/employee/attendance': 'My Attendance',
+  '/employee/salary': 'My Salary',
+  '/employee/leaves': 'My Leave',
+  '/employee/profile': 'My Profile',
 }
 
 export default function Layout() {

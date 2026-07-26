@@ -78,7 +78,7 @@ export default function Departments() {
   if (loading) return <Loading />
 
   return (
-    <div className="page-container">
+    <div className="page-container management-page departments-page">
       <div className="page-header">
         <h2>Departments</h2>
         <button className="btn btn-primary" onClick={openCreate}>+ Add Department</button>
@@ -100,9 +100,9 @@ export default function Departments() {
               {departments.length === 0 ? (
                 <tr><td colSpan={5} className="text-center">No departments found</td></tr>
               ) : (
-                departments.map((dept) => (
+                departments.map((dept, index) => (
                   <tr key={dept.id}>
-                    <td>{dept.id}</td>
+                    <td>{index + 1}</td>
                     <td><strong>{dept.name}</strong></td>
                     <td>{dept.description || '-'}</td>
                     <td><span className="badge badge-active">{dept.employee_count || 0}</span></td>

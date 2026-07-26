@@ -65,10 +65,10 @@ export default function Employees() {
   if (loading && employees.length === 0) return <Loading />
 
   return (
-    <div className="page-container">
+    <div className="page-container management-page employees-page">
       <div className="page-header">
         <h2>Employees ({total})</h2>
-        <Link to="/employees/new" className="btn btn-primary">+ Add Employee</Link>
+        <Link to="/admin/employees/new" className="btn btn-primary">+ Add Employee Account</Link>
       </div>
 
       <div className="card">
@@ -113,14 +113,14 @@ export default function Employees() {
               ) : (
                 employees.map((emp) => (
                   <tr key={emp.id}>
-                    <td>{emp.id}</td>
+                    <td>{emp.employee_id}</td>
                     <td>{emp.first_name} {emp.last_name}</td>
                     <td>{emp.email}</td>
                     <td>{emp.department_name || emp.department || '-'}</td>
                     <td>{emp.position || '-'}</td>
                     <td><span className={`badge badge-${emp.status}`}>{emp.status}</span></td>
                     <td className="actions-cell">
-                      <Link to={`/employees/${emp.id}/edit`} className="btn btn-sm btn-outline">Edit</Link>
+                      <Link to={`/admin/employees/${emp.id}/edit`} className="btn btn-sm btn-outline">Edit</Link>
                       <button className="btn btn-sm btn-danger" onClick={() => setDeleteId(emp.id)}>Delete</button>
                     </td>
                   </tr>

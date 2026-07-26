@@ -1,7 +1,8 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
+from typing import Literal
 
 
 class EmployeeCreate(BaseModel):
@@ -9,7 +10,9 @@ class EmployeeCreate(BaseModel):
     department_id: str | None = None
     first_name: str
     last_name: str
-    email: str
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=72)
+    role: Literal["admin", "employee"] = "employee"
     phone: str | None = None
     position: str | None = None
     salary: Decimal | None = None
@@ -27,7 +30,10 @@ class EmployeeUpdate(BaseModel):
     department_id: str | None = None
     first_name: str | None = None
     last_name: str | None = None
-    email: str | None = None
+    email: EmailStr | None = None
+    password: str | None = Field(default=None, min_length=8, max_length=72)
+    role: Literal["admin", "employee"] | None = None
+    is_active: bool | None = None
     phone: str | None = None
     position: str | None = None
     salary: Decimal | None = None
@@ -48,6 +54,8 @@ class EmployeeResponse(BaseModel):
     first_name: str
     last_name: str
     email: str
+    role: Literal["admin", "employee"] | None = None
+    is_active: bool | None = None
     phone: str | None
     position: str | None
     salary: Decimal | None

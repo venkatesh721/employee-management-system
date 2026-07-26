@@ -2,19 +2,27 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import Column, Date, DateTime, ForeignKey, Numeric, String, Text
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
+from app.core.types import GUID
 
 
 class Employee(Base):
     __tablename__ = "employees"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     employee_id = Column(String(20), unique=True, nullable=False, index=True)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    department_id = Column(UUID(as_uuid=True), ForeignKey("departments.id", ondelete="SET NULL"), nullable=True)
+    user_id = Column(
+        GUID(),
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    department_id = Column(
+        GUID(), ForeignKey("departments.id", ondelete="SET NULL"), nullable=True
+    )
     first_name = Column(String(150), nullable=False)
     last_name = Column(String(150), nullable=False)
     email = Column(String(255), unique=True, nullable=False, index=True)
@@ -28,7 +36,9 @@ class Employee(Base):
     state = Column(String(100), nullable=True)
     zip_code = Column(String(20), nullable=True)
     status = Column(String(20), default="active", nullable=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
     updated_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -36,5 +46,12 @@ class Employee(Base):
     )
 
     user = relationship("User")
-    department = relationship("Department", foreign_keys=[department_id], back_populates="employees")
+    department = relationship(
+        "Department", foreign_keys=[department_id], back_populates="employees"
+    )
     attendance_records = relationship("Attendance", back_populates="employee")
+    salary_structure = relationship(
+        "SalaryStructure", back_populates="employee", uselist=False
+    )
+    payroll_records = relationship("PayrollRecord", back_populates="employee")
+    leave_requests = relationship("LeaveRequest", back_populates="employee")

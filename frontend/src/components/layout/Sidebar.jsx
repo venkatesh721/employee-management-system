@@ -1,54 +1,8 @@
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
-
-const navItems = [
-  { to: '/', label: 'Dashboard', icon: '📊' },
-  { to: '/employees', label: 'Employees', icon: '👥' },
-  { to: '/departments', label: 'Departments', icon: '🏢' },
-  { to: '/attendance', label: 'Attendance', icon: '📋' },
-  { to: '/profile', label: 'Profile', icon: '👤' },
-]
-
-export default function Sidebar({ open, onClose }) {
-  const { user, logout } = useAuth()
-
-  return (
-    <>
-      {open && <div className="sidebar-overlay" onClick={onClose} />}
-      <aside className={`sidebar ${open ? 'open' : ''}`}>
-        <div className="sidebar-header">
-          <div className="sidebar-logo">
-            <span className="logo-icon">E</span>
-            <span className="logo-text">EMS</span>
-          </div>
-        </div>
-        <nav className="sidebar-nav">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/'}
-              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-              onClick={onClose}
-            >
-              <span className="nav-icon">{item.icon}</span>
-              <span className="nav-label">{item.label}</span>
-            </NavLink>
-          ))}
-        </nav>
-        <div className="sidebar-footer">
-          <div className="sidebar-user">
-            <div className="user-avatar">{user?.full_name?.charAt(0) || 'U'}</div>
-            <div className="user-info">
-              <p className="user-name">{user?.full_name || 'User'}</p>
-              <p className="user-role">{user?.email || ''}</p>
-            </div>
-          </div>
-          <button className="btn btn-danger btn-sm logout-btn" onClick={logout}>
-            Logout
-          </button>
-        </div>
-      </aside>
-    </>
-  )
-}
+const adminItems=[
+ {to:'/admin/dashboard',label:'Dashboard',icon:'D'},{to:'/admin/employees',label:'Employees',icon:'E'},{to:'/admin/departments',label:'Departments',icon:'D'},
+ {to:'/admin/attendance',label:'Attendance',icon:'A'},{to:'/admin/payroll',label:'Payroll',icon:'₹'},{to:'/admin/leaves',label:'Leave Requests',icon:'L'},
+ {to:'/admin/ai-assistant',label:'AI Assistant',icon:'AI'},{to:'/admin/insights',label:'AI Insights',icon:'I'},{to:'/admin/audit-logs',label:'Audit Logs',icon:'≡'},{to:'/admin/profile',label:'Profile',icon:'P'}]
+const employeeItems=[{to:'/employee/dashboard',label:'Dashboard',icon:'D'},{to:'/employee/attendance',label:'My Attendance',icon:'A'},{to:'/employee/salary',label:'My Salary',icon:'₹'},{to:'/employee/leaves',label:'My Leave',icon:'L'},{to:'/employee/profile',label:'My Profile',icon:'P'}]
+export default function Sidebar({open,onClose}){const{user,logout}=useAuth(),items=user?.role==='admin'?adminItems:employeeItems;return <>{open&&<div className="sidebar-overlay" onClick={onClose}/>}<aside className={`sidebar ${open?'open':''}`}><div className="sidebar-header"><div className="sidebar-logo"><span className="logo-icon">G</span><span className="logo-text">GLOBALCO EMS</span></div></div><nav className="sidebar-nav">{items.map(item=><NavLink key={item.to} to={item.to} className={({isActive})=>`nav-link ${isActive?'active':''}`} onClick={onClose}><span className="nav-icon">{item.icon}</span><span className="nav-label">{item.label}</span></NavLink>)}</nav><div className="sidebar-footer"><div className="sidebar-user"><div className="user-avatar">{user?.full_name?.charAt(0)||'U'}</div><div className="user-info"><p className="user-name">{user?.full_name||'User'}</p><p className="user-role">{user?.role}</p></div></div><button className="btn btn-danger btn-sm logout-btn" onClick={logout}>Logout</button></div></aside></>}
