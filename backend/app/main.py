@@ -39,14 +39,22 @@ app = FastAPI(
     title="Employee Management System API", version="1.0.0", lifespan=lifespan
 )
 
+allowed_origins = [
+    origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()
+]
+if settings.ENVIRONMENT.lower() != "production":
+    allowed_origins.append("http://localhost:5173")
+
 app.add_middleware(ProductionMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()
-    ],
+    allow_origins=allowed_origins,
+    allow_origin_regex=(
+        r"https://employee-management-system-[a-zA-Z0-9-]+"
+        r"-venkatesh721s-projects\.vercel\.app"
+    ),
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
