@@ -1633,6 +1633,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .profile-form-notice span { display: grid; flex: 0 0 17px; height: 17px; place-items: center; color: white; background: var(--primary); border-radius: 50%; font-family: Georgia,serif; font-weight: 700; }
 .profile-edit-card .form-actions { margin-top: 2px; padding-top: 17px; border-top: 1px solid var(--border); }
 .employee-form-page > .card { background: linear-gradient(145deg,color-mix(in srgb,#4f46e5 5%,var(--bg-card)),var(--bg-card)); }
+.department-create-button { align-self: flex-start; margin-top: 8px; }
 
 .attendance-page .form-grid {
   display: grid;

@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import EmployeeForm from './EmployeeForm'
 import {
+  createDepartment,
   getDepartments,
   normalizeDepartments,
 } from '../services/departmentService'
@@ -13,7 +14,11 @@ import { createEmployee } from '../services/employeeService'
 
 vi.mock('../services/departmentService', async (importOriginal) => {
   const actual = await importOriginal()
-  return { ...actual, getDepartments: vi.fn() }
+  return {
+    ...actual,
+    createDepartment: vi.fn(),
+    getDepartments: vi.fn(),
+  }
 })
 
 vi.mock('../services/employeeService', () => ({
@@ -38,6 +43,7 @@ function renderForm() {
 }
 
 afterEach(() => {
+  cleanup()
   vi.clearAllMocks()
 })
 
@@ -100,15 +106,28 @@ describe('EmployeeForm department dropdown', () => {
     expect(createEmployee.mock.calls[0][0].department_id).toBe('dept-uuid-123')
   })
 
-  it('shows the empty-state message when no departments exist', async () => {
+  it('creates and selects a department without leaving the employee form', async () => {
     getDepartments.mockResolvedValue({ data: { departments: [] } })
-    renderForm()
+    createDepartment.mockResolvedValue({
+      data: { id: 'new-department-id', name: 'Engineering' },
+    })
+    const { container } = renderForm()
 
-    expect(
-      await screen.findByText(
-        'No departments available. Create a department first.',
-      ),
-    ).toBeTruthy()
+    await screen.findByRole('option', { name: 'No department (optional)' })
+    fireEvent.click(screen.getByRole('button', { name: '+ Create department' }))
+    fireEvent.change(screen.getByLabelText('Name *'), {
+      target: { value: 'Engineering' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Create and select' }))
+
+    await waitFor(() => {
+      expect(createDepartment).toHaveBeenCalledWith({
+        name: 'Engineering',
+        description: '',
+      })
+    })
+    expect(container.querySelector('select[name="department_id"]').value)
+      .toBe('new-department-id')
   })
 
   it('shows and logs a clear request error', async () => {

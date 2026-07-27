@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { createEmployee, getEmployee, updateEmployee } from '../services/employeeService'
-import { getDepartments, normalizeDepartments } from '../services/departmentService'
+import {
+  createDepartment,
+  getDepartments,
+  normalizeDepartments,
+} from '../services/departmentService'
 import { STATUS_OPTIONS, POSITION_OPTIONS } from '../utils/constants'
 import toast from 'react-hot-toast'
 import Loading from '../components/common/Loading'
@@ -34,6 +38,10 @@ export default function EmployeeForm() {
   const [departments, setDepartments] = useState([])
   const [departmentsLoading, setDepartmentsLoading] = useState(true)
   const [departmentsError, setDepartmentsError] = useState('')
+  const [showDepartmentModal, setShowDepartmentModal] = useState(false)
+  const [departmentName, setDepartmentName] = useState('')
+  const [departmentSaving, setDepartmentSaving] = useState(false)
+  const [departmentCreateError, setDepartmentCreateError] = useState('')
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -135,6 +143,33 @@ export default function EmployeeForm() {
     }
   }
 
+  const handleCreateDepartment = async (e) => {
+    e.preventDefault()
+    const name = departmentName.trim()
+    if (!name) {
+      setDepartmentCreateError('Department name is required')
+      return
+    }
+
+    setDepartmentSaving(true)
+    setDepartmentCreateError('')
+    try {
+      const response = await createDepartment({ name, description: '' })
+      const department = response.data
+      setDepartments((current) => [...current, department])
+      setForm((current) => ({ ...current, department_id: department.id }))
+      setDepartmentName('')
+      setShowDepartmentModal(false)
+      toast.success('Department created and selected')
+    } catch (err) {
+      setDepartmentCreateError(
+        err.response?.data?.detail || 'Failed to create department',
+      )
+    } finally {
+      setDepartmentSaving(false)
+    }
+  }
+
   if (loading) return <Loading />
 
   return (
@@ -195,7 +230,7 @@ export default function EmployeeForm() {
                     : departmentsError
                       ? 'Departments unavailable'
                       : departments.length === 0
-                        ? 'No departments available. Create a department first.'
+                        ? 'No department (optional)'
                         : 'Select Department'}
                 </option>
                 {departments.map((d) => (
@@ -204,6 +239,18 @@ export default function EmployeeForm() {
               </select>
               {departmentsError && (
                 <div className="field-error" role="alert">{departmentsError}</div>
+              )}
+              {!departmentsLoading && !departmentsError && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline department-create-button"
+                  onClick={() => {
+                    setDepartmentCreateError('')
+                    setShowDepartmentModal(true)
+                  }}
+                >
+                  + Create department
+                </button>
               )}
             </div>
             <div className="form-group">
@@ -266,6 +313,45 @@ export default function EmployeeForm() {
           </div>
         </form>
       </div>
+
+      {showDepartmentModal && (
+        <div className="modal-overlay" onClick={() => setShowDepartmentModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Create Department</h3>
+            {departmentCreateError && (
+              <div className="alert alert-error" role="alert">
+                {departmentCreateError}
+              </div>
+            )}
+            <form onSubmit={handleCreateDepartment}>
+              <div className="form-group">
+                <label htmlFor="new-department-name">Name *</label>
+                <input
+                  id="new-department-name"
+                  type="text"
+                  value={departmentName}
+                  onChange={(e) => setDepartmentName(e.target.value)}
+                  className="form-control"
+                  placeholder="e.g. Engineering"
+                  autoFocus
+                />
+              </div>
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() => setShowDepartmentModal(false)}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={departmentSaving}>
+                  {departmentSaving ? 'Creating...' : 'Create and select'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
