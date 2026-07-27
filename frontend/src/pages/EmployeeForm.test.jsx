@@ -54,10 +54,17 @@ describe('department response normalization', () => {
     ['array', departments],
     ['items wrapper', { items: departments }],
     ['departments wrapper', { departments }],
+    ['results wrapper', { results: departments }],
+    ['nested data wrapper', { data: departments }],
     ['Axios array response', { data: departments }],
     ['Axios items response', { data: { items: departments } }],
   ])('supports %s', (_label, response) => {
     expect(normalizeDepartments(response)).toEqual(departments)
+  })
+
+  it('rejects unexpected structures instead of hiding them as empty', () => {
+    expect(() => normalizeDepartments({ data: { detail: 'Unexpected' } }))
+      .toThrow('Unexpected departments API response structure')
   })
 })
 
@@ -77,6 +84,8 @@ describe('EmployeeForm department dropdown', () => {
 
     expect(departmentSelect).toBeTruthy()
     expect(screen.getByText('Loading departments...')).toBeTruthy()
+    expect(screen.getByRole('option', { name: 'No department (optional)' }))
+      .toBeTruthy()
 
     resolveDepartments({
       data: {
@@ -107,7 +116,11 @@ describe('EmployeeForm department dropdown', () => {
   })
 
   it('creates and selects a department without leaving the employee form', async () => {
-    getDepartments.mockResolvedValue({ data: { departments: [] } })
+    getDepartments
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({
+        data: [{ id: 'new-department-id', name: 'Engineering' }],
+      })
     createDepartment.mockResolvedValue({
       data: { id: 'new-department-id', name: 'Engineering' },
     })
@@ -125,7 +138,9 @@ describe('EmployeeForm department dropdown', () => {
         name: 'Engineering',
         description: '',
       })
+      expect(getDepartments).toHaveBeenCalledTimes(2)
     })
+    await screen.findByRole('option', { name: 'Engineering' })
     expect(container.querySelector('select[name="department_id"]').value)
       .toBe('new-department-id')
   })

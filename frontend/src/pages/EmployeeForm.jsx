@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { createEmployee, getEmployee, updateEmployee } from '../services/employeeService'
 import {
@@ -46,27 +46,31 @@ export default function EmployeeForm() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
+  const loadDepartments = useCallback(async () => {
+    setDepartmentsLoading(true)
+    setDepartmentsError('')
+    try {
+      const response = await getDepartments()
+      const loadedDepartments = normalizeDepartments(response)
+      setDepartments(loadedDepartments)
+      return loadedDepartments
+    } catch (departmentRequestError) {
+      console.error('Failed to load departments:', departmentRequestError)
+      setDepartments([])
+      setDepartmentsError(
+        'Unable to load departments. Please refresh the page and try again.',
+      )
+      return null
+    } finally {
+      setDepartmentsLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
-    let active = true
+    loadDepartments()
+  }, [loadDepartments])
 
-    getDepartments()
-      .then((response) => {
-        if (!active) return
-        setDepartments(normalizeDepartments(response))
-        setDepartmentsError('')
-      })
-      .catch((departmentRequestError) => {
-        console.error('Failed to load departments:', departmentRequestError)
-        if (!active) return
-        setDepartments([])
-        setDepartmentsError(
-          'Unable to load departments. Please refresh the page and try again.',
-        )
-      })
-      .finally(() => {
-        if (active) setDepartmentsLoading(false)
-      })
-
+  useEffect(() => {
     if (isEdit) {
       getEmployee(id)
         .then((res) => {
@@ -98,9 +102,6 @@ export default function EmployeeForm() {
         .finally(() => setLoading(false))
     }
 
-    return () => {
-      active = false
-    }
   }, [id, isEdit, navigate])
 
   const handleChange = (e) => {
@@ -153,11 +154,13 @@ export default function EmployeeForm() {
 
     setDepartmentSaving(true)
     setDepartmentCreateError('')
+    let department
     try {
       const response = await createDepartment({ name, description: '' })
-      const department = response.data
-      setDepartments((current) => [...current, department])
-      setForm((current) => ({ ...current, department_id: department.id }))
+      department = response.data
+      if (!department?.id) {
+        throw new TypeError('Department creation returned an invalid response')
+      }
       setDepartmentName('')
       setShowDepartmentModal(false)
       toast.success('Department created and selected')
@@ -167,6 +170,11 @@ export default function EmployeeForm() {
       )
     } finally {
       setDepartmentSaving(false)
+    }
+
+    if (department) {
+      await loadDepartments()
+      setForm((current) => ({ ...current, department_id: department.id }))
     }
   }
 
@@ -224,15 +232,10 @@ export default function EmployeeForm() {
                 className="form-control"
                 disabled={departmentsLoading || Boolean(departmentsError)}
               >
-                <option value="">
-                  {departmentsLoading
-                    ? 'Loading departments...'
-                    : departmentsError
-                      ? 'Departments unavailable'
-                      : departments.length === 0
-                        ? 'No department (optional)'
-                        : 'Select Department'}
-                </option>
+                <option value="">No department (optional)</option>
+                {departmentsLoading && (
+                  <option value="" disabled>Loading departments...</option>
+                )}
                 {departments.map((d) => (
                   <option key={d.id} value={d.id}>{d.name}</option>
                 ))}
