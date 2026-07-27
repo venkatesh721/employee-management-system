@@ -2,7 +2,7 @@ import math
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -115,12 +115,13 @@ def create_employee(
     if db.query(Employee).filter(Employee.email == payload.email).first():
         raise HTTPException(status_code=400, detail="Email already in use")
 
-    if db.query(User).filter(User.email == str(payload.email).lower()).first():
+    normalized_email = str(payload.email).strip().lower()
+    if db.query(User).filter(func.lower(User.email) == normalized_email).first():
         raise HTTPException(
             status_code=400, detail="A login account already uses this email"
         )
 
-    username_base = str(payload.email).split("@")[0].replace(".", "_")[:120]
+    username_base = normalized_email.split("@")[0].replace(".", "_")[:120]
     username = username_base
     suffix = 1
     while db.query(User).filter(User.username == username).first():
@@ -129,7 +130,7 @@ def create_employee(
 
     account = User(
         id=uuid.uuid4(),
-        email=str(payload.email).lower(),
+        email=normalized_email,
         username=username,
         hashed_password=hash_password(payload.password),
         full_name=f"{payload.first_name} {payload.last_name}".strip(),
@@ -149,7 +150,7 @@ def create_employee(
         else None,
         first_name=payload.first_name,
         last_name=payload.last_name,
-        email=str(payload.email).lower(),
+        email=normalized_email,
         phone=payload.phone,
         position=payload.position,
         salary=payload.salary,

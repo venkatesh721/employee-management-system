@@ -64,6 +64,131 @@ def test_employee_registration_and_public_admin_prevention(client):
     assert blocked.status_code == 422
 
 
+def test_registration_normalizes_email_and_login_accepts_spaces_and_case(client):
+    response = client.post(
+        "/api/auth/register-employee",
+        json=registration_payload(
+            username="normalized_employee",
+            email="  Normalized.Employee@Example.COM  ",
+        ),
+    )
+    assert response.status_code == 201, response.text
+    assert response.json()["email"] == "normalized.employee@example.com"
+
+    login = client.post(
+        "/api/auth/login",
+        json={
+            "identifier": "  NORMALIZED.EMPLOYEE@EXAMPLE.COM  ",
+            "password": STRONG_PASSWORD,
+            "role": "employee",
+        },
+    )
+    assert login.status_code == 200, login.text
+
+    assert login.json()["user"]["role"] == "employee"
+
+
+def test_admin_created_employee_can_login_with_normalized_email(client):
+    admin_login = client.post(
+        "/api/auth/login",
+        json={
+            "identifier": "admin@example.com",
+            "password": "AdminTest123!",
+            "role": "admin",
+        },
+    )
+    assert admin_login.status_code == 200
+    headers = {
+        "Authorization": f"Bearer {admin_login.json()['access_token']}",
+    }
+    created = client.post(
+        "/api/employees",
+        headers=headers,
+        json={
+            "first_name": "Admin",
+            "last_name": "Created",
+            "email": "  Admin.Created@Example.COM  ",
+            "password": "AdminCreated123!",
+            "role": "employee",
+            "status": "active",
+        },
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["email"] == "admin.created@example.com"
+
+    login = client.post(
+        "/api/auth/login",
+        json={
+            "identifier": "  ADMIN.CREATED@EXAMPLE.COM ",
+            "password": "AdminCreated123!",
+            "role": "employee",
+        },
+    )
+    assert login.status_code == 200, login.text
+
+    updated = client.put(
+        f"/api/employees/{created.json()['id']}",
+        headers=headers,
+        json={"password": "UpdatedByAdmin123!"},
+    )
+    assert updated.status_code == 200, updated.text
+
+    old_password_login = client.post(
+        "/api/auth/login",
+        json={
+            "identifier": "admin.created@example.com",
+            "password": "AdminCreated123!",
+            "role": "employee",
+        },
+    )
+    assert old_password_login.status_code == 401
+
+    updated_password_login = client.post(
+        "/api/auth/login",
+        json={
+            "identifier": "admin.created@example.com",
+            "password": "UpdatedByAdmin123!",
+            "role": "employee",
+        },
+    )
+    assert updated_password_login.status_code == 200
+
+
+def test_login_password_and_both_role_mismatch_statuses(client):
+    invalid_password = client.post(
+        "/api/auth/login",
+        json={
+            "identifier": "employee@example.com",
+            "password": "IncorrectPassword123!",
+            "role": "employee",
+        },
+    )
+    assert invalid_password.status_code == 401
+    assert invalid_password.json()["detail"] == "Invalid email/username or password"
+
+    employee_as_admin = client.post(
+        "/api/auth/login",
+        json={
+            "identifier": "employee@example.com",
+            "password": "EmployeeTest123!",
+            "role": "admin",
+        },
+    )
+    assert employee_as_admin.status_code == 403
+    assert "Administrator" in employee_as_admin.json()["detail"]
+
+    admin_as_employee = client.post(
+        "/api/auth/login",
+        json={
+            "identifier": "admin@example.com",
+            "password": "AdminTest123!",
+            "role": "employee",
+        },
+    )
+    assert admin_as_employee.status_code == 403
+    assert "Employee" in admin_as_employee.json()["detail"]
+
+
 def test_registration_duplicate_and_password_validation(client):
     assert (
         client.post(

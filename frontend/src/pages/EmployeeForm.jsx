@@ -30,11 +30,24 @@ const emptyForm = {
   is_active: true,
 }
 
+const getApiErrorMessage = (err, fallback) => {
+  const detail = err.response?.data?.detail
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((item) => (typeof item === 'string' ? item : item?.msg))
+      .filter(Boolean)
+    if (messages.length) return messages.join(', ')
+  }
+  return fallback
+}
+
 export default function EmployeeForm() {
   const { id } = useParams()
   const isEdit = Boolean(id)
   const navigate = useNavigate()
   const [form, setForm] = useState(emptyForm)
+  const [initialForm, setInitialForm] = useState(emptyForm)
   const [departments, setDepartments] = useState([])
   const [departmentsLoading, setDepartmentsLoading] = useState(true)
   const [departmentsError, setDepartmentsError] = useState('')
@@ -75,7 +88,7 @@ export default function EmployeeForm() {
       getEmployee(id)
         .then((res) => {
           const emp = res.data
-          setForm({
+          const loadedForm = {
             first_name: emp.first_name || '',
             last_name: emp.last_name || '',
             email: emp.email || '',
@@ -93,7 +106,9 @@ export default function EmployeeForm() {
             role: emp.role || 'employee',
             password: '',
             is_active: emp.is_active ?? true,
-          })
+          }
+          setForm(loadedForm)
+          setInitialForm(loadedForm)
         })
         .catch(() => {
           toast.error('Failed to load employee')
@@ -119,14 +134,52 @@ export default function EmployeeForm() {
       setError('A login password of at least 8 characters is required')
       return
     }
+    if (isEdit && form.password && form.password.length < 8) {
+      setError('The new password must contain at least 8 characters')
+      return
+    }
     setSaving(true)
     try {
-      const payload = {
-        ...form,
-        salary: form.salary ? Number(form.salary) : null,
-        department_id: form.department_id || null,
+      let payload
+      if (isEdit) {
+        payload = Object.fromEntries(
+          Object.entries(form).filter(
+            ([key, value]) => key === 'password'
+              ? Boolean(value)
+              : value !== initialForm[key],
+          ),
+        )
+        for (const field of [
+          'department_id',
+          'phone',
+          'position',
+          'salary',
+          'date_of_birth',
+          'date_of_hire',
+          'address',
+          'city',
+          'state',
+          'zip_code',
+        ]) {
+          if (field in payload && payload[field] === '') payload[field] = null
+        }
+        if ('salary' in payload && payload.salary !== null) {
+          payload.salary = Number(payload.salary)
+        }
+      } else {
+        payload = {
+          ...form,
+          salary: form.salary ? Number(form.salary) : null,
+          department_id: form.department_id || null,
+          date_of_birth: form.date_of_birth || null,
+          date_of_hire: form.date_of_hire || null,
+        }
       }
-      if (isEdit && !payload.password) delete payload.password
+
+      if (isEdit && Object.keys(payload).length === 0) {
+        setError('Change at least one field before updating')
+        return
+      }
       if (isEdit) {
         await updateEmployee(id, payload)
         toast.success('Employee updated successfully')
@@ -136,7 +189,7 @@ export default function EmployeeForm() {
       }
       navigate('/admin/employees')
     } catch (err) {
-      const msg = err.response?.data?.detail || 'Failed to save employee'
+      const msg = getApiErrorMessage(err, 'Failed to save employee')
       setError(msg)
       toast.error(msg)
     } finally {
@@ -166,7 +219,7 @@ export default function EmployeeForm() {
       toast.success('Department created and selected')
     } catch (err) {
       setDepartmentCreateError(
-        err.response?.data?.detail || 'Failed to create department',
+        getApiErrorMessage(err, 'Failed to create department'),
       )
     } finally {
       setDepartmentSaving(false)
@@ -209,7 +262,7 @@ export default function EmployeeForm() {
             </div>
             <div className="form-group">
               <label>{isEdit ? 'New Password (optional)' : 'Login Password *'}</label>
-              <input type="password" name="password" minLength={isEdit ? undefined : 8} maxLength={72} value={form.password} onChange={handleChange} className="form-control" autoComplete="new-password" />
+              <input type="password" name="password" minLength={8} maxLength={72} value={form.password} onChange={handleChange} className="form-control" autoComplete="new-password" />
             </div>
           </div>
           <div className="form-row">

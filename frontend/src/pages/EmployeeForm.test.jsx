@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import EmployeeForm from './EmployeeForm'
@@ -10,7 +10,11 @@ import {
   getDepartments,
   normalizeDepartments,
 } from '../services/departmentService'
-import { createEmployee } from '../services/employeeService'
+import {
+  createEmployee,
+  getEmployee,
+  updateEmployee,
+} from '../services/employeeService'
 
 vi.mock('../services/departmentService', async (importOriginal) => {
   const actual = await importOriginal()
@@ -38,6 +42,20 @@ function renderForm() {
   return render(
     <MemoryRouter>
       <EmployeeForm />
+    </MemoryRouter>,
+  )
+}
+
+function renderEditForm() {
+  return render(
+    <MemoryRouter initialEntries={['/admin/employees/employee-1/edit']}>
+      <Routes>
+        <Route
+          path="/admin/employees/:id/edit"
+          element={<EmployeeForm />}
+        />
+        <Route path="/admin/employees" element={<div>Employee list</div>} />
+      </Routes>
     </MemoryRouter>,
   )
 }
@@ -161,5 +179,106 @@ describe('EmployeeForm department dropdown', () => {
       requestError,
     )
     consoleError.mockRestore()
+  })
+})
+
+describe('EmployeeForm password update', () => {
+  const employee = {
+    id: 'employee-1',
+    first_name: 'Vicky',
+    last_name: 'Employee',
+    email: 'vicky@example.com',
+    status: 'active',
+    role: 'employee',
+    is_active: true,
+  }
+
+  it('shows a validation message instead of crashing on API detail arrays', async () => {
+    getDepartments.mockResolvedValue({ data: [] })
+    getEmployee.mockResolvedValue({ data: employee })
+    updateEmployee.mockRejectedValue({
+      response: {
+        data: {
+          detail: [
+            { msg: 'Value error, password does not meet requirements' },
+          ],
+        },
+      },
+    })
+    const { container } = renderEditForm()
+
+    await screen.findByDisplayValue('vicky@example.com')
+    fireEvent.change(container.querySelector('input[name="password"]'), {
+      target: { value: 'ValidNewPassword123!' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Update Employee' }))
+
+    expect(
+      await screen.findByText(
+        'Value error, password does not meet requirements',
+      ),
+    ).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Update Employee' })).toBeTruthy()
+  })
+
+  it('blocks a short new password before calling the API', async () => {
+    getDepartments.mockResolvedValue({ data: [] })
+    getEmployee.mockResolvedValue({ data: employee })
+    const { container } = renderEditForm()
+
+    await screen.findByDisplayValue('vicky@example.com')
+    fireEvent.change(container.querySelector('input[name="password"]'), {
+      target: { value: 'short' },
+    })
+    fireEvent.submit(container.querySelector('.employee-form'))
+
+    expect(
+      await screen.findByText(
+        'The new password must contain at least 8 characters',
+      ),
+    ).toBeTruthy()
+    expect(updateEmployee).not.toHaveBeenCalled()
+  })
+
+  it('sends only the single changed field and omits blank dates', async () => {
+    getDepartments.mockResolvedValue({ data: [] })
+    getEmployee.mockResolvedValue({ data: employee })
+    updateEmployee.mockResolvedValue({ data: { ...employee, phone: '9876543210' } })
+    const { container } = renderEditForm()
+
+    await screen.findByDisplayValue('vicky@example.com')
+    fireEvent.change(container.querySelector('input[name="phone"]'), {
+      target: { value: '9876543210' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Update Employee' }))
+
+    await waitFor(() => {
+      expect(updateEmployee).toHaveBeenCalledWith(
+        'employee-1',
+        { phone: '9876543210' },
+      )
+    })
+  })
+
+  it('sends null when an optional date is intentionally cleared', async () => {
+    getDepartments.mockResolvedValue({ data: [] })
+    getEmployee.mockResolvedValue({
+      data: { ...employee, date_of_hire: '2026-07-01' },
+    })
+    updateEmployee.mockResolvedValue({ data: employee })
+    const { container } = renderEditForm()
+
+    await screen.findByDisplayValue('2026-07-01')
+    fireEvent.change(container.querySelector('input[name="date_of_hire"]'), {
+      target: { value: '' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Update Employee' }))
+
+    await waitFor(() => {
+      expect(updateEmployee).toHaveBeenCalledWith(
+        'employee-1',
+        { date_of_hire: null },
+      )
+    })
   })
 })

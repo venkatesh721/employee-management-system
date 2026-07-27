@@ -1,3 +1,5 @@
+import hashlib
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -36,6 +38,7 @@ from app.services.password_reset import (
 )
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
+logger = logging.getLogger(__name__)
 RESET_RESPONSE = (
     "If an account exists for this email, a password-reset link has been sent."
 )
@@ -105,7 +108,7 @@ def register(
     status_code=status.HTTP_201_CREATED,
 )
 def register_employee(payload: EmployeeRegisterRequest, db: Session = Depends(get_db)):
-    email = str(payload.email).lower()
+    email = str(payload.email).strip().lower()
     if db.query(User).filter(func.lower(User.email) == email).first():
         raise HTTPException(status_code=409, detail="Email already registered")
     if (
@@ -151,7 +154,8 @@ def register_employee(payload: EmployeeRegisterRequest, db: Session = Depends(ge
 
 @router.post("/login", response_model=TokenResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    identifier = payload.identifier.lower()
+    identifier = payload.identifier.strip().lower()
+    identifier_fingerprint = hashlib.sha256(identifier.encode("utf-8")).hexdigest()[:12]
     user = (
         db.query(User)
         .filter(
@@ -162,24 +166,55 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
         )
         .first()
     )
-    if not user or not verify_password(payload.password, user.hashed_password):
+    if not user:
+        logger.warning(
+            "Login rejected: account_not_found identifier_fingerprint=%s",
+            identifier_fingerprint,
+        )
+        raise HTTPException(
+            status_code=401, detail="Invalid email/username or password"
+        )
+    if not verify_password(payload.password, user.hashed_password):
+        hash_kind = (
+            "bcrypt"
+            if user.hashed_password.startswith(("$2a$", "$2b$", "$2y$"))
+            else "invalid_or_unsupported"
+        )
+        logger.warning(
+            "Login rejected: password_mismatch user_id=%s hash_kind=%s",
+            user.id,
+            hash_kind,
+        )
         raise HTTPException(
             status_code=401, detail="Invalid email/username or password"
         )
     if not user.is_active:
+        logger.warning("Login rejected: inactive_account user_id=%s", user.id)
         raise HTTPException(status_code=403, detail="User account is inactive")
 
-    actual_role = "admin" if user.is_superuser else user.role
+    stored_role = (user.role or "").strip().lower()
+    actual_role = "admin" if user.is_superuser else stored_role
     if actual_role != payload.role:
+        logger.warning(
+            "Login rejected: role_mismatch user_id=%s selected_role=%s actual_role=%s",
+            user.id,
+            payload.role,
+            actual_role or "invalid",
+        )
         selected = "Administrator" if payload.role == "admin" else "Employee"
         raise HTTPException(
             status_code=403,
             detail=f"This account is not registered as an {selected}.",
         )
 
+    # Canonicalize legacy mixed-case role values only after successful
+    # authentication. Current account-creation paths already store lowercase.
+    if user.role != actual_role:
+        user.role = actual_role
     access_token = create_access_token(data={"sub": str(user.id)})
     record_audit(db, user, "login", "authentication")
     db.commit()
+    logger.info("Login succeeded user_id=%s role=%s", user.id, actual_role)
     return TokenResponse(access_token=access_token, user=user)
 
 

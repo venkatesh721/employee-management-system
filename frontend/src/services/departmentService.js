@@ -1,6 +1,16 @@
 import api from './api'
 
-export const getDepartments = () => api.get('/departments')
+export const getDepartments = () =>
+  api.get('/departments', {
+    // Department choices must reflect records just created on the management
+    // page. The timestamp also prevents intermediary/CDN caches from serving
+    // an earlier empty list in production.
+    params: { _fresh: Date.now() },
+    headers: {
+      'Cache-Control': 'no-cache',
+      Pragma: 'no-cache',
+    },
+  })
 
 export const normalizeDepartments = (response) => {
   const payload = response?.data ?? response
